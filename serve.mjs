@@ -1,6 +1,14 @@
 import fetch from 'node-fetch';
 import session from 'express-session';
 import express from 'express';
+import fs from 'fs';
+import http from 'http';
+import https from 'https';
+
+const privateKey = fs.readFileSync('/etc/letsencrypt/live/muzzanet.com/privkey.pem');
+const certificate = fs.readFileSync('/etc/letsencrypt/live/muzzanet.com/fullchain.pem');
+
+const credentials = {key: privateKey, cert: certificate};
 const app = express()
 const port = 3000
 const secret = '6df25c9b-a5e5-4692-a1b0-081d92a7b62f';
@@ -212,6 +220,8 @@ app.get('/api/sonos/redirect', async (req, res) => {
     res.redirect(301, `http://localhost:8082/Page1?access_token=${json.access_token}`);
 })
 
-app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`)
-})
+const httpServer = http.createServer(app);
+const httpsServer = https.createServer(credentials, app);
+
+httpServer.listen(80);
+httpsServer.listen(3000);
