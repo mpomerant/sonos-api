@@ -13,6 +13,40 @@ const app = express()
 const port = 3000
 const secret = '6df25c9b-a5e5-4692-a1b0-081d92a7b62f';
 const clientId = '5b7ca8b5-0ad9-4123-ab50-e654f508bc21';
+
+let clients = [];
+let facts = [];
+
+function initializeSSE(req, res) {
+    
+    const headers = {
+        'Content-Type': 'text/event-stream',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache'
+      };
+      res.writeHead(200, headers);
+    
+      const data = `data: ${JSON.stringify(facts)}\n\n`;
+    
+      res.write(data);
+    
+      const clientId = Date.now();
+    
+      const newClient = {
+        id: clientId,
+        response
+      };
+    
+      console.log(`adding ${clientId} connetion`);
+      clients.push(newClient);
+    
+      req.on('close', () => {
+        console.log(`${clientId} Connection closed`);
+        clients = clients.filter(client => client.id !== clientId);
+      });
+}
+
+
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*"); // update to match the domain you will make the request from
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -21,6 +55,11 @@ app.use(function(req, res, next) {
 app.use(session({ secret: 'keyboard cat', saveUninitialized: false, resave: false, cookie: { secure: false, maxAge: 600000 }}));
 
 app.use(express.json());
+
+app.get('/api/updates', (req, res) => {
+    initializeSSE(req, res);
+});
+
 
 app.post('/api/groups/:id/groupVolume', async(req, res) => {
 
@@ -125,9 +164,12 @@ app.post('/api/groups/:id/playback/pause', async(req, res) => {
     res.json(json);
 })
 
+
 app.post('/api/callbacks', (req, res) => {
-    const {headers} = req;
-    console.log(req.headers);
+    const {headers, body} = req;
+    console.log(headers);
+    console.log(body);
+    clients.forEach(client => client.response.write(`data: ${JSON.stringify(newFact)}\n\n`))
 
 });
 
