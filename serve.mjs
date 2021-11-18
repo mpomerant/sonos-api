@@ -5,6 +5,8 @@ import fs from 'fs';
 import http from 'http';
 import https from 'https';
 
+import playback from './playback.mjs';
+
 // const privateKey = fs.readFileSync('/etc/letsencrypt/live/muzzanet.com/privkey.pem');
 // const certificate = fs.readFileSync('/etc/letsencrypt/live/muzzanet.com/fullchain.pem');
 
@@ -15,43 +17,42 @@ const secret = '6df25c9b-a5e5-4692-a1b0-081d92a7b62f';
 const clientId = '5b7ca8b5-0ad9-4123-ab50-e654f508bc21';
 
 let clients = [];
-let facts = [];
-
+let events = [];
+const SSE_RESPONSE_HEADER = {
+  'Connection': 'keep-alive',
+  'Content-Type': 'text/event-stream',
+  'Cache-Control': 'no-cache',
+  'X-Accel-Buffering': 'no'
+};
 function initializeSSE(req, res) {
-    
-    const headers = {
-        'Content-Type': 'text/event-stream',
-        'Connection': 'keep-alive',
-        'Cache-Control': 'no-cache'
-      };
-      res.writeHead(200, headers);
-    
-      const data = `data: ${JSON.stringify(facts)}\n\n`;
-    
-      res.write(data);
-    
-      const clientId = Date.now();
+      res.writeHead(200, SSE_RESPONSE_HEADER);
+      res.write(`:\n\n`);
+      //res.flushHeaders();
+      const client = Date.now();
     
       const newClient = {
-        id: clientId,
-        response
+        id: client,
+        response: res
       };
     
-      console.log(`adding ${clientId} connetion`);
+      console.log(`adding ${client} connetion`);
       clients.push(newClient);
-    
       req.on('close', () => {
-        console.log(`${clientId} Connection closed`);
-        clients = clients.filter(client => client.id !== clientId);
+        console.log(`${client} Connection closed`);
+        clients = clients.filter(c => c.id !== client);
       });
 }
 
 
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*"); // update to match the domain you will make the request from
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
   next();
 });
+
+app.use(function(req, res, next) {
+    res.locals.clients = clients;
+    next();
+  });
 app.use(session({ secret: 'keyboard cat', saveUninitialized: false, resave: false, cookie: { secure: false, maxAge: 600000 }}));
 
 app.use(express.json());
@@ -60,6 +61,8 @@ app.get('/api/updates', (req, res) => {
     initializeSSE(req, res);
 });
 
+
+app.use('/api/groups/:id/playback', playback);
 
 app.post('/api/groups/:id/groupVolume', async(req, res) => {
 
@@ -84,134 +87,28 @@ app.post('/api/groups/:id/groupVolume', async(req, res) => {
 })
 
 
-app.post('/api/groups/:id/playback/play', async(req, res) => {
 
-    const accessToken = req.session.accessToken
-    const groupId = req.params.id;
-    console.log(groupId);
-    const response =  await fetch(`https://api.ws.sonos.com/control/api/v1/groups/${groupId}/playback/play`, {
-        method: 'POST',
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
-        }
-    });
-
-
-   const json = await response.json();
-   console.log(json);
-
-    res.json(json);
-})
-
-app.post('/api/groups/:id/playback/skipToNextTrack', async(req, res) => {
-
-    const accessToken = req.session.accessToken
-    const groupId = req.params.id;
-    console.log(groupId);
-    const response =  await fetch(`https://api.ws.sonos.com/control/api/v1/groups/${groupId}/playback/skipToNextTrack`, {
-        method: 'POST',
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
-        }
-    });
-
-
-   const json = await response.json();
-   console.log(json);
-
-    res.json(json);
-})
-
-app.post('/api/groups/:id/playback/skipToPreviousTrack', async(req, res) => {
-
-    const accessToken = req.session.accessToken
-    const groupId = req.params.id;
-    console.log(groupId);
-    const response =  await fetch(`https://api.ws.sonos.com/control/api/v1/groups/${groupId}/playback/skipToPreviousTrack`, {
-        method: 'POST',
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
-        }
-    });
-
-
-   const json = await response.json();
-   console.log(json);
-
-    res.json(json);
-})
-
-app.post('/api/groups/:id/playback/pause', async(req, res) => {
-
-    const accessToken = req.session.accessToken
-    const groupId = req.params.id;
-    console.log(groupId);
-    const response =  await fetch(`https://api.ws.sonos.com/control/api/v1/groups/${groupId}/playback/pause`, {
-        method: 'POST',
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
-        }
-    });
-
-
-   const json = await response.json();
-   console.log(json);
-
-    res.json(json);
-})
 
 
 app.post('/api/callbacks', (req, res) => {
     const {headers, body} = req;
     console.log(headers);
     console.log(body);
-    clients.forEach(client => client.response.write(`data: ${JSON.stringify(newFact)}\n\n`))
+    console.log('---------------------------CALLBACK---------------------');
+    console.log(`clients: ${clients.length}`);
+    clients.forEach(client => {
+	    
+	    client.response.write('id:' +  Date.now() + '\n');
+
+	    client.response.write('event: playback\n');
+	    client.response.write('data:' + JSON.stringify(body) + ' \n\n');
+	    
+	    // client.response.flush();
+	    });
 
 });
 
-app.post('/api/groups/:id/playback/subscription', async(req, res) => {
 
-    const accessToken = req.session.accessToken
-    const groupId = req.params.id;
-    console.log(groupId);
-    const response =  await fetch(`https://api.ws.sonos.com/control/api/v1/groups/${groupId}/playback/subscription`, {
-        method: 'POST',
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
-        }
-    });
-
-
-   const json = await response.json();
-   console.log(json);
-
-   res.json(json);
-})
-
-app.get('/api/groups/:id/playback', async(req, res) => {
-
-    const accessToken = req.session.accessToken
-    const groupId = req.params.id;
-    console.log(groupId);
-    const response =  await fetch(`https://api.ws.sonos.com/control/api/v1/groups/${groupId}/playback`, {
-        method: 'GET',
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`
-        }
-    });
-
-
-   const json = await response.json();
-   console.log(json);
-
-    res.json(json);
-})
 
 app.get('/api/households/:id/groups', async(req, res) => {
 
@@ -294,5 +191,4 @@ app.get('/api/sonos/redirect', async (req, res) => {
 })
 
 const httpServer = http.createServer(app);
-
 httpServer.listen(3000);
