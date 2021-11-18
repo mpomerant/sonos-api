@@ -61,6 +61,11 @@ app.get('/api/updates', (req, res) => {
     initializeSSE(req, res);
 });
 
+app.use('/api/groups/:id', (req, res, next) => {
+    const groupId = req.params.id;
+    res.locals.groupId = groupId;
+    next();
+});
 
 app.use('/api/groups/:id/playback', playback);
 

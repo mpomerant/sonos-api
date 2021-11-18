@@ -6,7 +6,7 @@ const router = express.Router();
 router.post('/', async(req, res, next) => {
 
     const accessToken = req.session.accessToken
-    const groupId = req.locals.groupId;
+    const groupId = res.locals.groupId;
     console.log(`subscription: ${groupId}`);
     
     const response =  await fetch(`https://api.ws.sonos.com/control/api/v1/groups/${groupId}/playback/subscription`, {
@@ -23,7 +23,7 @@ router.post('/', async(req, res, next) => {
 router.post('/', async(req, res, next) => {
 
     const accessToken = req.session.accessToken
-    const groupId = req.locals.groupId;
+    const groupId = res.locals.groupId;
     console.log(`subscription: ${groupId}`);
     
     const metadataResponse =  await fetch(`https://api.ws.sonos.com/control/api/v1/groups/${groupId}/playbackMetadata/subscription`, {
@@ -39,7 +39,7 @@ router.post('/', async(req, res, next) => {
 router.post('/', async(req, res, next) => {
 
     const accessToken = req.session.accessToken
-    const groupId = req.locals.groupId;
+    const groupId = res.locals.groupId;
     console.log(`subscription: ${groupId}`);
     
     const currentState =  await fetch(`https://api.ws.sonos.com/control/api/v1/groups/${groupId}/playback`, {
@@ -60,7 +60,7 @@ router.post('/', async(req, res, next) => {
 router.delete('/', async(req, res, next) => {
 
     const accessToken = req.session.accessToken
-    const groupId = req.locals.groupId;
+    const groupId = res.locals.groupId;
     
     if (groupId) {
         console.log(`unsubscribing from ${groupId}`);
